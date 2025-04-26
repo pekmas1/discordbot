@@ -1,0 +1,55 @@
+import discord
+from discord.ext import commands
+import os
+from dotenv import load_dotenv
+from PIL import Image, ImageDraw, ImageFont
+from pathlib import Path
+from discord.ext.commands import Context
+
+load_dotenv()
+TOKEN = os.getenv("DISCORD_TOKEN")
+
+
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+
+TEMP_DIR = Path("temp")
+TEMP_DIR.mkdir(exist_ok=True)
+
+
+# ANSWER HERE -----------------
+@bot.command()
+async def meme(ctx: Context,text):
+    if not ctx.message.attachments:
+        await ctx.send("Please attach an image!")
+        return
+    attachment = ctx.message.attachments[0]
+    if not attachment.filename.lower().endswith((".png", ".jpg", ".jpeg")):
+        await ctx.send("Please upload an image file!")
+        return
+    
+    try:
+        img_path = TEMP_DIR / attachment.filename
+        await attachment.save(img_path)
+        img = Image.open(img_path)
+        draw = ImageDraw.Draw(img)
+        font_size = int(img.width / 15)
+        font = ImageFont.truetype("arial.ttf", font_size)
+        text_width = draw.textlength(text, font=font)
+        x = (img.width - text_width) / 2
+        y = img.height - font_size - 10
+        draw.text((x, y), text, font=font, fill="white")
+        output_path = TEMP_DIR / f"meme_{attachment.filename}"
+        img.save(output_path)
+        await ctx.send(file=discord.File(output_path))
+    except Exception as e:
+        await ctx.send(f"Error creating meme: {str(e)}")
+    finally:
+        if img_path.exists():
+            img_path.unlink()
+        if "output_path" in locals() and output_path.exists():
+            output_path.unlink()
+# ------------------------------
+bot.run(TOKEN)
